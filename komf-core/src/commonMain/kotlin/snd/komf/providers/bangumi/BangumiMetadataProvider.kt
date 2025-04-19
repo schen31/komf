@@ -53,8 +53,7 @@ class BangumiMetadataProvider(
     }
 
     override suspend fun searchSeries(seriesName: String, limit: Int): Collection<SeriesSearchResult> {
-        return client.searchSeries(seriesName).data.asSequence()
-            .filter { it.tags.none { tag -> tag.name == "漫画单行本" } }
+        return client.searchSeries(seriesName).asSequence()
             .take(limit)
             .map {
                 metadataMapper.toSearchResult(it)
@@ -63,8 +62,7 @@ class BangumiMetadataProvider(
 
     override suspend fun matchSeriesMetadata(matchQuery: MatchQuery): ProviderSeriesMetadata? {
         val searchResults = client.searchSeries(matchQuery.seriesName)
-        val matches = searchResults.data.asSequence()
-            .filter { it.tags.none { tag -> tag.name == "漫画单行本" } }
+        val matches = searchResults.asSequence()
             .filter { nameMatcher.matches(matchQuery.seriesName, listOfNotNull(it.nameCn, it.name)) }
             .toList()
 

@@ -106,13 +106,26 @@ class BangumiMetadataMapper(
             thumbnail = thumbnail,
         )
 
-        val books = bookRelations.map {
-            SeriesBook(
-                id = ProviderBookId(it.id.toString()),
-                number = getBookNumber(it.name),
-                name = it.name,
-                type = null,
-                edition = null
+        val books = if (bookRelations.isNotEmpty()) {
+            bookRelations.map {
+                SeriesBook(
+                    id = ProviderBookId(it.id.toString()),
+                    number = getBookNumber(it.name),
+                    name = it.name,
+                    type = null,
+                    edition = null
+                )
+            }
+        } else {
+            // Single volume series, the series subject is the book.
+            listOf(
+                SeriesBook(
+                    id = ProviderBookId(subject.id.toString()),
+                    number = BookRange(1),
+                    name = subject.name,
+                    type = null,
+                    edition = null
+                )
             )
         }
 

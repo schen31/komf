@@ -1,5 +1,9 @@
 # Komga and Kavita Metadata Fetcher
 
+## Branch Note
+
+Experimental branch that syncs up with the original repository, while includes all my modifications.
+
 ## Overview
 
 Komga and Kavita Metadata Fetcher is a tool that fetches metadata and thumbnails for your digital comic book library. It

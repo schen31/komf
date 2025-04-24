@@ -21,8 +21,14 @@ class BangumiClient(
 
     suspend fun searchSeries(
         keyword: String,
+        limit: Int? = null,
+        offset: Int? = null
     ): SearchSubjectsResponse {
         return ktor.post("$apiV0Url/search/subjects") {
+            url {
+                if (limit != null) parameters.append("limit", limit.toString())
+                if (offset != null) parameters.append("offset", offset.toString())
+            }
             contentType(ContentType.Application.Json)
             setBody(
                 buildJsonObject {
@@ -33,7 +39,6 @@ class BangumiClient(
                     })
                 }
             )
-
         }.body()
     }
 

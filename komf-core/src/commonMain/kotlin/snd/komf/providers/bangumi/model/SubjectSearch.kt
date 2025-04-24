@@ -22,5 +22,6 @@ data class SubjectSearchData(
     val nameCn: String? = null,
     val tags: List<SubjectTag> = emptyList(),
     val rating: SubjectRating? = null,
-    val type: SubjectType? = null
+    val type: SubjectType? = null,
+    val series: Boolean
 )

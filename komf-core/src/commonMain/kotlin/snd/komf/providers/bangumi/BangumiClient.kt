@@ -12,7 +12,6 @@ import snd.komf.model.Image
 import snd.komf.providers.bangumi.model.BangumiSubject
 import snd.komf.providers.bangumi.model.SearchSubjectsResponse
 import snd.komf.providers.bangumi.model.SubjectRelation
-import snd.komf.providers.bangumi.model.SubjectSearchData
 import snd.komf.providers.bangumi.model.SubjectType
 
 class BangumiClient(
@@ -22,8 +21,14 @@ class BangumiClient(
 
     suspend fun searchSeries(
         keyword: String,
-    ): List<SubjectSearchData> {
-        val searchResults: SearchSubjectsResponse = ktor.post("$apiV0Url/search/subjects") {
+        limit: Int? = null,
+        offset: Int? = null
+    ): SearchSubjectsResponse {
+        return ktor.post("$apiV0Url/search/subjects") {
+            url {
+                if (limit != null) parameters.append("limit", limit.toString())
+                if (offset != null) parameters.append("offset", offset.toString())
+            }
             contentType(ContentType.Application.Json)
             setBody(
                 buildJsonObject {
@@ -35,15 +40,6 @@ class BangumiClient(
                 }
             )
         }.body()
-
-        val series= mutableListOf<SubjectSearchData>()
-        for (item in searchResults.data) {
-            if (isSeries(item)) {
-                series.add(item)
-            }
-        }
-
-        return series
     }
 
     suspend fun getSubject(subjectId: Long): BangumiSubject {
@@ -62,14 +58,5 @@ class BangumiClient(
             }.body()
             Image(bytes)
         }
-    }
-
-    private suspend fun isSeries(searchResult: SubjectSearchData): Boolean {
-        // Check 'series' field first, regular series with more than one volume has this field set to true.
-        if (searchResult.series) return true
-
-        // Check if this is a single volume series, which doesn't have "系列" relation to another book.
-        return getSubjectRelations(searchResult.id)
-            .none { it.relation == "系列" }
     }
 }

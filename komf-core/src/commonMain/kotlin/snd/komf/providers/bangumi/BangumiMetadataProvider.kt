@@ -53,25 +53,50 @@ class BangumiMetadataProvider(
     }
 
     override suspend fun searchSeries(seriesName: String, limit: Int): Collection<SeriesSearchResult> {
-        return client.searchSeries(seriesName).asSequence()
-            .take(limit)
+        val foundSeries = mutableListOf<SubjectSearchData>()
+        var searchOffset = 0
+        while (foundSeries.size < limit) {
+            val response  = client.searchSeries(seriesName, offset = searchOffset)
+            val searchResults = response.data
+            for (item in searchResults) {
+                if (isSeries(item)) {
+                    foundSeries.add(item)
+                    if (foundSeries.size == limit) break
+                }
+            }
+
+            searchOffset += searchResults.size
+            if (response.total == null || searchOffset >= response.total) break
+        }
+
+        return foundSeries.asSequence()
             .map {
                 metadataMapper.toSearchResult(it)
             }.toList()
     }
 
     override suspend fun matchSeriesMetadata(matchQuery: MatchQuery): ProviderSeriesMetadata? {
-        val searchResults = client.searchSeries(matchQuery.seriesName)
-        val matches = searchResults.asSequence()
-            .filter { nameMatcher.matches(matchQuery.seriesName, listOfNotNull(it.nameCn, it.name)) }
-            .toList()
+        var subject: BangumiSubject?
+        var searchOffset = 0
+        do {
+            val response = client.searchSeries(matchQuery.seriesName, offset = searchOffset)
+            val series = mutableListOf<SubjectSearchData>()
+            for (item in response.data) {
+                if (isSeries(item)) {
+                    series.add(item)
+                }
+            }
 
-        val subject = when (matches.size) {
-            0 -> null
-            1 -> matches.first().let { client.getSubject(it.id) }
-            else -> firstMatchingType(matches, this.mediaType)
+            val matches = series.asSequence()
+                .filter { nameMatcher.matches(matchQuery.seriesName, listOfNotNull(it.nameCn, it.name)) }
+                .toList()
+            subject = firstMatchingType(matches, this.mediaType)
+            if (subject != null) break
 
-        } ?: return null
+            searchOffset += response.data.size
+        } while (response.total != null && searchOffset < response.total)
+
+        if (subject == null) return null
 
         val thumbnail = if (fetchSeriesCovers) client.getThumbnail(subject) else null
         val bookRelations = client.getSubjectRelations(subject.id)
@@ -97,5 +122,14 @@ class BangumiMetadataProvider(
             if (subject.platform == matchPlatform) return subject
         }
         return null
+    }
+
+    private suspend fun isSeries(searchResult: SubjectSearchData): Boolean {
+        // Check 'series' field first, regular series with more than one volume has this field set to true.
+        if (searchResult.series) return true
+
+        // Check if this is a single volume series, which doesn't have "系列" relation to another book.
+        return client.getSubjectRelations(searchResult.id)
+            .none { it.relation == "系列" }
     }
 }

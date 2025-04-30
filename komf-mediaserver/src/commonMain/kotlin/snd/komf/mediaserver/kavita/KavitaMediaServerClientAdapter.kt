@@ -166,8 +166,18 @@ class KavitaMediaServerClientAdapter(private val kavitaClient: KavitaClient) : M
         selected: Boolean,
         lock: Boolean
     ): MediaServerBookThumbnail? {
-        val chapter = kavitaClient.getChapter(bookId.toKavitaChapterId())
-        kavitaClient.uploadVolumeCover(chapter.volumeId, thumbnail, lock)
+        val chapterId = bookId.toKavitaChapterId()
+        val chapter = kavitaClient.getChapter(chapterId)
+
+        if (chapter.number == KavitaClient.LOOSE_LEAF_OR_DEFAULT_NUMBER.toString()) {
+            // For chapter that doesn't have valid chapter number, i.e. Single Volume chapter in Kavita,
+            // use uploadChapterCover api which updates both the chapter cover and the parent volume cover.
+            kavitaClient.uploadChapterCover(chapterId, thumbnail, lock)
+        } else {
+            // Otherwise, only update parent volume cover.
+            kavitaClient.uploadVolumeCover(chapter.volumeId, thumbnail, lock)
+        }
+
         return null
     }
 

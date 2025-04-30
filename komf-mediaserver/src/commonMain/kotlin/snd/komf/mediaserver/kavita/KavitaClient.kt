@@ -34,6 +34,12 @@ class KavitaClient(
     private val json: Json,
     private val apiKey: String,
 ) {
+    companion object {
+        // Special volume / chapter numbers defined in Kavita
+        const val LOOSE_LEAF_OR_DEFAULT_NUMBER = -100000
+        const val SPECIAL_VOLUME_NUMBER = 100000
+    }
+
     private val updatesRateLimiter = rateLimiter(eventsPerInterval = 120, interval = 60.seconds)
 
     suspend fun getSeries(seriesId: KavitaSeriesId): KavitaSeries {
@@ -165,6 +171,16 @@ class KavitaClient(
         ktor.post("api/upload/volume") {
             contentType(ContentType.Application.Json)
             setBody(KavitaCoverUploadRequest(id = volumeId.value, url = base64Image, lockCover))
+        }
+    }
+
+    // Update cover image for a chapter and its parent volume.
+    suspend fun uploadChapterCover(chapterId: KavitaChapterId, cover: Image, lockCover: Boolean) {
+        updatesRateLimiter.acquire()
+        val base64Image = Base64.getEncoder().encodeToString(cover.bytes)
+        ktor.post("api/upload/chapter") {
+            contentType(ContentType.Application.Json)
+            setBody(KavitaCoverUploadRequest(id = chapterId.value, url = base64Image, lockCover))
         }
     }
 

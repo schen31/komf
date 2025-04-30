@@ -3,6 +3,7 @@
 build/
 **/build/
 !src/**/build/
+.kotlin
 config/
 
 ### intellij idea ###

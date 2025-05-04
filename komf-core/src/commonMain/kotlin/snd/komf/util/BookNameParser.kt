@@ -59,4 +59,23 @@ object BookNameParser {
     fun getExtraData(name: String): List<String> {
         return extraDataRegex.findAll(name).mapNotNull { it.groups["extra"]?.value }.toList()
     }
+
+    fun getSortNumber(name: String): Double? {
+        val volumeNumber = getVolumes(name)?.start
+        val chapterNumberString = chapterRegexes.firstNotNullOfOrNull { it.findAll(name).lastOrNull()?.groups }?.get("start")?.value
+
+        // Try combine volume number with chapter number to get sort number.
+        // Parse chapter string and add it as the decimals to the volume number.
+        if (volumeNumber != null) {
+            val chapterDecimals = "0.${chapterNumberString?.replace(".", "") ?: "0"}".toDoubleOrNull() ?: 0.0
+            return volumeNumber + chapterDecimals
+        }
+        // No volume number but has chapter number: use chapter number as sort number,
+        // assuming they are un-collected chapters, so they should be sorted last.
+        else if (chapterNumberString != null)
+            return chapterNumberString.replace("[x#]".toRegex(), ".").toDoubleOrNull()
+        // No volume nor chapter number in the file name, try parse book number.
+        else
+            return getBookNumber(name)?.start
+    }
 }

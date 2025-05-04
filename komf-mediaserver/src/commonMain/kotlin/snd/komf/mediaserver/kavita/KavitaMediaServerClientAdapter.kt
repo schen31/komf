@@ -585,6 +585,6 @@ private fun MediaServerBookMetadataUpdate.toKavitaChapterMetadataUpdate(currentC
         titleNameLocked = false,
         isbnLocked = false,
         releaseDateLocked = false,
-        sortOrderLocked = false
+        sortOrderLocked = numberSortLock ?: false
     )
 }

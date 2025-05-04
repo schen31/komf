@@ -106,17 +106,13 @@ class MetadataPostProcessor(
     }
 
     private fun orderBook(book: MediaServerBook, metadata: BookMetadata): BookMetadata {
-        val range = when (libraryType) {
-            MediaType.MANGA -> BookNameParser.getVolumes(book.name)
-                ?: BookNameParser.getChapters(book.name)
-                ?: BookNameParser.getBookNumber(book.name)
-
-            MediaType.NOVEL, MediaType.COMIC -> BookNameParser.getBookNumber(book.name)
+        val numberSort: Double? = when (libraryType) {
+            MediaType.MANGA -> BookNameParser.getSortNumber(book.name)
+            MediaType.NOVEL, MediaType.COMIC -> BookNameParser.getBookNumber(book.name)?.start
         }
 
         return metadata.copy(
-            number = range ?: metadata.number,
-            numberSort = range?.start ?: metadata.numberSort
+            numberSort = numberSort ?: metadata.numberSort
         )
     }
 

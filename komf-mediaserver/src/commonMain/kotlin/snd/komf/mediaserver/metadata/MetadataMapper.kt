@@ -42,7 +42,7 @@ class MetadataMapper {
 
                 // ignore lock since we can't know if komf was the one to lock number
                 number = bookMetadata?.number?.toString(),
-                numberSort = bookMetadata?.number?.start,
+                numberSort = bookMetadata?.numberSort ?: bookMetadata?.number?.start,
 
                 // lock if number is not null; do not unlock if was locked
                 numberLock = numberLock || bookMetadata?.number != null,

@@ -51,6 +51,7 @@ data class MetadataProcessingConfigUpdateRequest(
     val seriesCovers: PatchValue<Boolean> = PatchValue.Unset,
     val overrideExistingCovers: PatchValue<Boolean> = PatchValue.Unset,
     val lockCovers: PatchValue<Boolean> = PatchValue.Unset,
+    val lockMatchedMetadata: PatchValue<Boolean> = PatchValue.Unset,
     val updateModes: PatchValue<Collection<KomfUpdateMode>> = PatchValue.Unset,
     val overrideComicInfo: PatchValue<Boolean> = PatchValue.Unset,
 

@@ -92,6 +92,7 @@ class AppConfigMapper {
             seriesCovers = config.seriesCovers,
             overrideExistingCovers = config.overrideExistingCovers,
             lockCovers = config.lockCovers,
+            lockMatchedMetadata = config.lockMatchedMetadata,
             updateModes = config.updateModes.map { it.fromUpdateMode() },
             postProcessing = toDto(config.postProcessing),
         )

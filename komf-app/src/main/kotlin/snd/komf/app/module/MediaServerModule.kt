@@ -179,7 +179,7 @@ class MediaServerModule(
             }
         }
         kavitaClient = KavitaClient(kavitaKtorClient, jsonBase, kavitaConfig.apiKey)
-        kavitaMediaServerClient = KavitaMediaServerClientAdapter(kavitaClient)
+        kavitaMediaServerClient = KavitaMediaServerClientAdapter(kavitaClient, kavitaConfig.metadataUpdate.default.lockMatchedMetadata)
         kavitaMetadataServiceProvider = createMetadataServiceProvider(
             config = kavitaConfig.metadataUpdate,
             mediaServerClient = kavitaMediaServerClient,

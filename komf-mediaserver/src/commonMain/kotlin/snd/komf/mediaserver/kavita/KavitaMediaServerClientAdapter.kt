@@ -44,10 +44,10 @@ import snd.komf.model.WebLink
 import java.nio.file.Path
 import kotlin.io.path.nameWithoutExtension
 
-class KavitaMediaServerClientAdapter(private val kavitaClient: KavitaClient) : MediaServerClient {
-
-    // TODO: make configurable
-    private val lockMatchedMetadata = true
+class KavitaMediaServerClientAdapter(
+    private val kavitaClient: KavitaClient,
+    private val lockMatchedMetadata: Boolean
+) : MediaServerClient {
 
     override suspend fun getSeries(seriesId: MediaServerSeriesId): MediaServerSeries {
         val kavitaSeriesId = seriesId.toKavitaSeriesId()

@@ -217,6 +217,7 @@ class KavitaMediaServerClientAdapter(private val kavitaClient: KavitaClient) : M
         }
         val publishers = ((alternativePublishers ?: emptyList()) + listOfNotNull(publisher))
             .map { KavitaAuthor(id = 0, name = it) }.toSet()
+        val genres = genres?.let { deduplicate(it) }?.map { KavitaGenre(id = 0, title = it) }?.toSet() ?: emptySet()
 
         val authors = authors?.groupBy { it.role.lowercase() }
         val writers = getRoles(authors, AuthorRole.WRITER)
@@ -241,8 +242,7 @@ class KavitaMediaServerClientAdapter(private val kavitaClient: KavitaClient) : M
             publicationStatus = status ?: currentMetadata.publicationStatus,
             summary = summary ?: currentMetadata.summary,
             publishers = publishers.ifEmpty { currentMetadata.publishers },
-            genres = genres?.let { deduplicate(it) }?.map { KavitaGenre(id = 0, title = it) }?.toSet()
-                ?: currentMetadata.genres,
+            genres = genres.ifEmpty { currentMetadata.genres },
             tags = tags?.let { deduplicate(it) }?.map { KavitaTag(id = 0, title = it) }?.toSet() ?: currentMetadata.tags,
             writers = writers.ifEmpty { currentMetadata.writers },
             coverArtists = coverArtists.ifEmpty { currentMetadata.coverArtists },
@@ -272,7 +272,7 @@ class KavitaMediaServerClientAdapter(private val kavitaClient: KavitaClient) : M
             summaryLocked = shouldLock(currentMetadata.summaryLocked, summary),
             ageRatingLocked = shouldLock(currentMetadata.ageRatingLocked, ageRating),
             publicationStatusLocked = shouldLock(currentMetadata.publicationStatusLocked, status),
-            genresLocked = shouldLock(currentMetadata.genresLocked, genres),
+            genresLocked = shouldLock(currentMetadata.genresLocked, genres.ifEmpty { null }),
             tagsLocked = shouldLock(currentMetadata.tagsLocked, tags),
             writerLocked = shouldLock(currentMetadata.writerLocked, writers.ifEmpty { null }),
             coloristLocked = shouldLock(currentMetadata.coloristLocked, colorists.ifEmpty { null }),
@@ -309,15 +309,21 @@ class KavitaMediaServerClientAdapter(private val kavitaClient: KavitaClient) : M
         val editors = getRoles(authors, AuthorRole.EDITOR)
         val translators = getRoles(authors, AuthorRole.TRANSLATOR)
 
+        val genres = genres?.let { deduplicate(it) }?.map { KavitaGenre(id = 0, title = it) }?.toSet() ?: emptySet()
+        val ageRating = ageRating
+            ?.let { metadataRating ->
+                KavitaAgeRating.entries
+                    .filter { it.ageRating != null }
+                    .sortedBy { it.ageRating }
+                    .firstOrNull { it.ageRating == it.ageRating!!.coerceAtLeast(metadataRating) }
+                    ?: KavitaAgeRating.ADULTS_ONLY
+            }
+
         return KavitaChapterMetadataUpdateRequest(
             id = currentChapter.id,
             summary = summary ?: currentChapter.summary,
+            genres = genres.ifEmpty { currentChapter.genres },
             tags = tags ?: currentChapter.tags,
-            weblinks = webLinks ?: currentChapter.webLinks,
-            isbn = isbn ?: currentChapter.isbn,
-            releaseDate = releaseDate?.atTime(LocalTime(0, 0, 0)) ?: currentChapter.releaseDate,
-            titleName = title ?: currentChapter.titleName,
-            sortOrder = numberSort ?: currentChapter.sortOrder,
             writers = writers.ifEmpty { currentChapter.writers },
             coverArtists = coverArtists.ifEmpty { currentChapter.coverArtists },
             pencillers = pencillers.ifEmpty { currentChapter.pencillers },
@@ -326,19 +332,25 @@ class KavitaMediaServerClientAdapter(private val kavitaClient: KavitaClient) : M
             letterers = letterers.ifEmpty { currentChapter.letterers },
             editors = editors.ifEmpty { currentChapter.editors },
             translators = translators.ifEmpty { currentChapter.translators },
+            ageRating = ageRating ?: currentChapter.ageRating,
+            language = language ?: currentChapter.language,
+            sortOrder = numberSort ?: currentChapter.sortOrder,
+            weblinks = webLinks ?: currentChapter.webLinks,
+            isbn = isbn ?: currentChapter.isbn,
+            releaseDate = releaseDate?.atTime(LocalTime(0, 0, 0)) ?: currentChapter.releaseDate,
+            titleName = title ?: currentChapter.titleName,
 
             // Passthrough data not provided by metadata provider
-            genres = currentChapter.genres,
-            ageRating = currentChapter.ageRating,
-            language = currentChapter.language,
-            imprints = currentChapter.imprints,
             publishers = currentChapter.publishers,
+            imprints = currentChapter.imprints,
             characters = currentChapter.characters,
             teams = currentChapter.teams,
             locations = currentChapter.locations,
 
             // Set locks
+            ageRatingLocked = shouldLock(currentChapter.ageRatingLocked, ageRating),
             titleNameLocked = shouldLock(false, title),
+            genresLocked = shouldLock(currentChapter.genresLocked, genres.ifEmpty { null }),
             tagsLocked = shouldLock(currentChapter.tagsLocked, tags),
             writerLocked = shouldLock(currentChapter.writerLocked, writers.ifEmpty { null }),
             coloristLocked = shouldLock(currentChapter.coloristLocked, colorists.ifEmpty { null }),
@@ -348,20 +360,18 @@ class KavitaMediaServerClientAdapter(private val kavitaClient: KavitaClient) : M
             pencillerLocked = shouldLock(currentChapter.pencillerLocked, pencillers.ifEmpty { null }),
             translatorLocked = shouldLock(currentChapter.translatorLocked, translators.ifEmpty { null }),
             coverArtistLocked = shouldLock(currentChapter.coverArtistLocked, coverArtists.ifEmpty { null }),
+            languageLocked = shouldLock(currentChapter.languageLocked, language),
             summaryLocked = shouldLock(currentChapter.summaryLocked, summary),
             isbnLocked = shouldLock(false, isbn),
             releaseDateLocked = shouldLock(currentChapter.releaseYearLocked, releaseDate),
             sortOrderLocked = shouldLock(numberSortLock ?: false, numberSort),
 
             // Passthrough lock status for data not provided by metadata provider
-            ageRatingLocked = currentChapter.ageRatingLocked,
-            genresLocked = currentChapter.genresLocked,
+            publisherLocked = currentChapter.publisherLocked,
             characterLocked = currentChapter.characterLocked,
             imprintLocked = currentChapter.imprintLocked,
-            publisherLocked = currentChapter.publisherLocked,
             teamLocked = currentChapter.teamLocked,
             locationLocked = currentChapter.locationLocked,
-            languageLocked = currentChapter.languageLocked,
         )
     }
 }
@@ -436,6 +446,9 @@ private fun KavitaChapter.toMediaServerBookMetadata(): MediaServerBookMetadata {
         tagsLock = tagsLocked,
         isbnLock = false,
         linksLock = false,
+        ageRatingLock = ageRatingLocked,
+        languageLock = languageLocked,
+        genresLock = genresLocked,
     )
 }
 

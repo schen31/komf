@@ -23,4 +23,7 @@ data class MediaServerBookMetadata(
     val tagsLock: Boolean,
     val isbnLock: Boolean,
     val linksLock: Boolean,
+    val ageRatingLock: Boolean,
+    val languageLock: Boolean,
+    val genresLock: Boolean,
 )

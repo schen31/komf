@@ -309,7 +309,10 @@ class KomgaMediaServerClientAdapter(
         authorsLock = authorsLock,
         tagsLock = tagsLock,
         isbnLock = isbnLock,
-        linksLock = linksLock
+        linksLock = linksLock,
+        ageRatingLock = false,
+        languageLock = false,
+        genresLock = false,
     )
 
     private fun KomgaBookThumbnail.toMediaServerBookThumbnail() = MediaServerBookThumbnail(

@@ -75,6 +75,7 @@ data class MetadataProcessingConfig(
     val seriesCovers: Boolean = false,
     val overrideExistingCovers: Boolean = true,
     var lockCovers: Boolean = true,
+    val lockMatchedMetadata: Boolean = false,
     val updateModes: List<UpdateMode> = listOf(API),
     val overrideComicInfo: Boolean = false,
 

@@ -13,6 +13,9 @@ data class MediaServerBookMetadataUpdate(
     val tags: List<String>? = null,
     val isbn: String? = null,
     val links: Collection<WebLink>? = null,
+    val ageRating: Int? = null,
+    val language: String? = null,
+    val genres: List<String>? = null,
 
     val titleLock: Boolean? = null,
     val summaryLock: Boolean? = null,

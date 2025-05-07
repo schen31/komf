@@ -157,6 +157,7 @@ kavita:
       seriesCovers: false #update series thumbnails
       overrideExistingCovers: true # if false will upload but not select new cover if another cover already exists
       lockCovers: true # lock cover images so that kavita does not change them
+      lockMatchedMetadata: true # lock metadata retrieved from the providers
       postProcessing:
         seriesTitle: false #update series title
         seriesTitleLanguage: "en" # series title update language. If empty chose first matching title

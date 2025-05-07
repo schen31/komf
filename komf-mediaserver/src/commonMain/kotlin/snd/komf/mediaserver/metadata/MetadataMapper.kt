@@ -39,6 +39,9 @@ class MetadataMapper {
                 tags = getIfNotLockedOrEmpty(bookMetadata?.tags?.toList(), tagsLock),
                 isbn = getIfNotLockedOrEmpty(bookMetadata?.isbn, isbnLock),
                 links = getIfNotLockedOrEmpty(bookMetadata?.links, linksLock),
+                ageRating = getIfNotLockedOrEmpty(seriesMetadata?.ageRating, ageRatingLock),
+                language = getIfNotLockedOrEmpty(seriesMetadata?.language, languageLock),
+                genres = getIfNotLockedOrEmpty(seriesMetadata?.genres?.toList() ?: emptyList(), genresLock),
 
                 // ignore lock since we can't know if komf was the one to lock number
                 number = bookMetadata?.number?.toString(),

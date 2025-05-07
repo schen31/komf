@@ -18,9 +18,9 @@ data class KavitaChapterMetadataUpdateRequest(
     val ageRating: KavitaAgeRating,
     val language: String? = null,
     val weblinks: String,
-    val isbn: String,
+    val isbn: String? = null,
     val releaseDate: LocalDateTime,
-    val titleName: String,
+    val titleName: String? = null,
     val sortOrder: Double,
 
     val writers: Collection<KavitaAuthor>,

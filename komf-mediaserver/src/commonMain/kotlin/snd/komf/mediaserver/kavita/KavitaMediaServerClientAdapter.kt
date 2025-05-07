@@ -46,6 +46,9 @@ import kotlin.io.path.nameWithoutExtension
 
 class KavitaMediaServerClientAdapter(private val kavitaClient: KavitaClient) : MediaServerClient {
 
+    // TODO: make configurable
+    private val lockMatchedMetadata = true
+
     override suspend fun getSeries(seriesId: MediaServerSeriesId): MediaServerSeries {
         val kavitaSeriesId = seriesId.toKavitaSeriesId()
         val series = kavitaClient.getSeries(kavitaSeriesId)
@@ -116,7 +119,6 @@ class KavitaMediaServerClientAdapter(private val kavitaClient: KavitaClient) : M
             val series = kavitaClient.getSeries(seriesId.toKavitaSeriesId())
             kavitaClient.updateSeries(
                 series.toKavitaTitleUpdate(
-                    metadata.title?.name,
                     metadata.titleSort?.name,
                     localizedName?.name
                 )
@@ -185,8 +187,184 @@ class KavitaMediaServerClientAdapter(private val kavitaClient: KavitaClient) : M
         kavitaClient.scanLibrary(libraryId.toKavitaLibraryId())
         kavitaClient.scanSeries(seriesId.toKavitaSeriesId())
     }
-}
 
+    private fun <T> shouldLock(currentlyLocked: Boolean, newMetadata: T?): Boolean =
+        currentlyLocked || (newMetadata != null && lockMatchedMetadata)
+
+    private fun KavitaSeries.toKavitaTitleUpdate(newSortName: String?, newLocalizedName: String?) =
+        KavitaSeriesUpdateRequest(
+            id = id,
+            sortName = newSortName?.trim() ?: sortName,
+            localizedName = newLocalizedName?.trim() ?: localizedName,
+            sortNameLocked = shouldLock(sortNameLocked, newSortName),
+            localizedNameLocked = shouldLock(localizedNameLocked, newLocalizedName),
+
+            coverImageLocked = coverImageLocked
+        )
+
+    private fun getRoles(authors: Map<String, List<MediaServerAuthor>>?, role: AuthorRole): Set<KavitaAuthor> = authors
+        ?.get(role.name.lowercase())
+        ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet() ?: emptySet()
+
+    private fun MediaServerSeriesMetadataUpdate.toKavitaSeriesMetadataUpdate(currentMetadata: KavitaSeriesMetadata): KavitaSeriesMetadataUpdateRequest {
+        val status = when (status) {
+            SeriesStatus.ENDED -> KavitaPublicationStatus.ENDED
+            SeriesStatus.ONGOING -> KavitaPublicationStatus.ONGOING
+            SeriesStatus.ABANDONED -> KavitaPublicationStatus.CANCELLED
+            SeriesStatus.HIATUS -> KavitaPublicationStatus.HIATUS
+            SeriesStatus.COMPLETED -> KavitaPublicationStatus.COMPLETED
+            null -> null
+        }
+        val publishers = ((alternativePublishers ?: emptyList()) + listOfNotNull(publisher))
+            .map { KavitaAuthor(id = 0, name = it) }.toSet()
+
+        val authors = authors?.groupBy { it.role.lowercase() }
+        val writers = getRoles(authors, AuthorRole.WRITER)
+        val coverArtists = getRoles(authors, AuthorRole.COVER)
+        val pencillers = getRoles(authors, AuthorRole.PENCILLER)
+        val inkers = getRoles(authors, AuthorRole.INKER)
+        val colorists = getRoles(authors, AuthorRole.COLORIST)
+        val letterers = getRoles(authors, AuthorRole.LETTERER)
+        val editors = getRoles(authors, AuthorRole.EDITOR)
+        val translators = getRoles(authors, AuthorRole.TRANSLATOR)
+
+        val ageRating = ageRating
+            ?.let { metadataRating ->
+                KavitaAgeRating.entries
+                    .filter { it.ageRating != null }
+                    .sortedBy { it.ageRating }
+                    .firstOrNull { it.ageRating == it.ageRating!!.coerceAtLeast(metadataRating) }
+                    ?: KavitaAgeRating.ADULTS_ONLY
+            }
+
+        val metadata = KavitaSeriesMetadata(
+            publicationStatus = status ?: currentMetadata.publicationStatus,
+            summary = summary ?: currentMetadata.summary,
+            publishers = publishers.ifEmpty { currentMetadata.publishers },
+            genres = genres?.let { deduplicate(it) }?.map { KavitaGenre(id = 0, title = it) }?.toSet()
+                ?: currentMetadata.genres,
+            tags = tags?.let { deduplicate(it) }?.map { KavitaTag(id = 0, title = it) }?.toSet() ?: currentMetadata.tags,
+            writers = writers.ifEmpty { currentMetadata.writers },
+            coverArtists = coverArtists.ifEmpty { currentMetadata.coverArtists },
+            pencillers = pencillers.ifEmpty { currentMetadata.pencillers },
+            inkers = inkers.ifEmpty { currentMetadata.inkers },
+            colorists = colorists.ifEmpty { currentMetadata.colorists },
+            letterers = letterers.ifEmpty { currentMetadata.letterers },
+            editors = editors.ifEmpty { currentMetadata.editors },
+            translators = translators.ifEmpty { currentMetadata.translators },
+            ageRating = ageRating ?: currentMetadata.ageRating,
+            language = language ?: currentMetadata.language,
+            releaseYear = releaseYear ?: currentMetadata.releaseYear,
+            webLinks = links?.joinToString(separator = ",") { it.url } ?: currentMetadata.webLinks,
+
+            // Passthrough data not provided by metadata provider
+            id = currentMetadata.id,
+            seriesId = currentMetadata.seriesId,
+            characters = currentMetadata.characters,
+            imprints = currentMetadata.imprints,
+            teams = currentMetadata.teams,
+            locations = currentMetadata.locations,
+            maxCount = currentMetadata.maxCount,
+            totalCount = currentMetadata.totalCount,
+
+            // Set locks
+            languageLocked = shouldLock(currentMetadata.languageLocked, language),
+            summaryLocked = shouldLock(currentMetadata.summaryLocked, summary),
+            ageRatingLocked = shouldLock(currentMetadata.ageRatingLocked, ageRating),
+            publicationStatusLocked = shouldLock(currentMetadata.publicationStatusLocked, status),
+            genresLocked = shouldLock(currentMetadata.genresLocked, genres),
+            tagsLocked = shouldLock(currentMetadata.tagsLocked, tags),
+            writerLocked = shouldLock(currentMetadata.writerLocked, writers.ifEmpty { null }),
+            coloristLocked = shouldLock(currentMetadata.coloristLocked, colorists.ifEmpty { null }),
+            editorLocked = shouldLock(currentMetadata.editorLocked, editors.ifEmpty { null }),
+            inkerLocked = shouldLock(currentMetadata.inkerLocked, inkers.ifEmpty { null }),
+            lettererLocked = shouldLock(currentMetadata.lettererLocked, letterers.ifEmpty { null }),
+            pencillerLocked = shouldLock(currentMetadata.pencillerLocked, pencillers.ifEmpty { null }),
+            publisherLocked = shouldLock(currentMetadata.publisherLocked, publishers.ifEmpty { null }),
+            translatorLocked = shouldLock(currentMetadata.translatorLocked, translators.ifEmpty { null }),
+            coverArtistLocked = shouldLock(currentMetadata.coverArtistLocked, coverArtists.ifEmpty { null }),
+            releaseYearLocked = shouldLock(currentMetadata.releaseYearLocked, releaseYear),
+
+            // Passthrough lock status for data not provided by metadata provider
+            characterLocked = currentMetadata.characterLocked,
+            imprintLocked = currentMetadata.imprintLocked,
+            teamLocked = currentMetadata.teamLocked,
+            locationLocked = currentMetadata.locationLocked,
+        )
+
+        return KavitaSeriesMetadataUpdateRequest(metadata)
+    }
+
+    private fun MediaServerBookMetadataUpdate.toKavitaChapterMetadataUpdate(currentChapter: KavitaChapter): KavitaChapterMetadataUpdateRequest {
+        val tags = tags?.let { deduplicate(it) }?.map { KavitaTag(id = 0, title = it) }?.ifEmpty { null }
+        val webLinks = links?.joinToString(",") { it.url }?.ifEmpty { null }
+
+        val authors = authors?.groupBy { it.role.lowercase() }
+        val writers = getRoles(authors, AuthorRole.WRITER)
+        val coverArtists = getRoles(authors, AuthorRole.COVER)
+        val pencillers = getRoles(authors, AuthorRole.PENCILLER)
+        val inkers = getRoles(authors, AuthorRole.INKER)
+        val colorists = getRoles(authors, AuthorRole.COLORIST)
+        val letterers = getRoles(authors, AuthorRole.LETTERER)
+        val editors = getRoles(authors, AuthorRole.EDITOR)
+        val translators = getRoles(authors, AuthorRole.TRANSLATOR)
+
+        return KavitaChapterMetadataUpdateRequest(
+            id = currentChapter.id,
+            summary = summary ?: currentChapter.summary,
+            tags = tags ?: currentChapter.tags,
+            weblinks = webLinks ?: currentChapter.webLinks,
+            isbn = isbn ?: currentChapter.isbn,
+            releaseDate = releaseDate?.atTime(LocalTime(0, 0, 0)) ?: currentChapter.releaseDate,
+            titleName = title ?: currentChapter.titleName,
+            sortOrder = numberSort ?: currentChapter.sortOrder,
+            writers = writers.ifEmpty { currentChapter.writers },
+            coverArtists = coverArtists.ifEmpty { currentChapter.coverArtists },
+            pencillers = pencillers.ifEmpty { currentChapter.pencillers },
+            inkers = inkers.ifEmpty { currentChapter.inkers },
+            colorists = colorists.ifEmpty { currentChapter.colorists },
+            letterers = letterers.ifEmpty { currentChapter.letterers },
+            editors = editors.ifEmpty { currentChapter.editors },
+            translators = translators.ifEmpty { currentChapter.translators },
+
+            // Passthrough data not provided by metadata provider
+            genres = currentChapter.genres,
+            ageRating = currentChapter.ageRating,
+            language = currentChapter.language,
+            imprints = currentChapter.imprints,
+            publishers = currentChapter.publishers,
+            characters = currentChapter.characters,
+            teams = currentChapter.teams,
+            locations = currentChapter.locations,
+
+            // Set locks
+            titleNameLocked = shouldLock(false, title),
+            tagsLocked = shouldLock(currentChapter.tagsLocked, tags),
+            writerLocked = shouldLock(currentChapter.writerLocked, writers.ifEmpty { null }),
+            coloristLocked = shouldLock(currentChapter.coloristLocked, colorists.ifEmpty { null }),
+            editorLocked = shouldLock(currentChapter.editorLocked, editors.ifEmpty { null }),
+            inkerLocked = shouldLock(currentChapter.inkerLocked, inkers.ifEmpty { null }),
+            lettererLocked = shouldLock(currentChapter.lettererLocked, letterers.ifEmpty { null }),
+            pencillerLocked = shouldLock(currentChapter.pencillerLocked, pencillers.ifEmpty { null }),
+            translatorLocked = shouldLock(currentChapter.translatorLocked, translators.ifEmpty { null }),
+            coverArtistLocked = shouldLock(currentChapter.coverArtistLocked, coverArtists.ifEmpty { null }),
+            summaryLocked = shouldLock(currentChapter.summaryLocked, summary),
+            isbnLocked = shouldLock(false, isbn),
+            releaseDateLocked = shouldLock(currentChapter.releaseYearLocked, releaseDate),
+            sortOrderLocked = shouldLock(numberSortLock ?: false, numberSort),
+
+            // Passthrough lock status for data not provided by metadata provider
+            ageRatingLocked = currentChapter.ageRatingLocked,
+            genresLocked = currentChapter.genresLocked,
+            characterLocked = currentChapter.characterLocked,
+            imprintLocked = currentChapter.imprintLocked,
+            publisherLocked = currentChapter.publisherLocked,
+            teamLocked = currentChapter.teamLocked,
+            locationLocked = currentChapter.locationLocked,
+            languageLocked = currentChapter.languageLocked,
+        )
+    }
+}
 
 private fun KavitaSeries.toMediaServerSeries(metadata: KavitaSeriesMetadata, bookCount: Int): MediaServerSeries {
     return MediaServerSeries(
@@ -253,7 +431,7 @@ private fun KavitaChapter.toMediaServerBookMetadata(): MediaServerBookMetadata {
         summaryLock = summaryLocked,
         numberLock = false,
         numberSortLock = false,
-        releaseDateLock = false,
+        releaseDateLock = releaseYearLocked,
         authorsLock = authorsLock,
         tagsLock = tagsLocked,
         isbnLock = false,
@@ -332,103 +510,6 @@ private fun KavitaSeriesMetadata.toMediaServerSeriesMetadata(series: KavitaSerie
     )
 }
 
-private fun MediaServerSeriesMetadataUpdate.toKavitaSeriesMetadataUpdate(currentMetadata: KavitaSeriesMetadata): KavitaSeriesMetadataUpdateRequest {
-    val status = when (status) {
-        SeriesStatus.ENDED -> KavitaPublicationStatus.ENDED
-        SeriesStatus.ONGOING -> KavitaPublicationStatus.ONGOING
-        SeriesStatus.ABANDONED -> KavitaPublicationStatus.CANCELLED
-        SeriesStatus.HIATUS -> KavitaPublicationStatus.HIATUS
-        SeriesStatus.COMPLETED -> KavitaPublicationStatus.COMPLETED
-        null -> null
-    }
-    val publishers =
-        if (publisher == null && alternativePublishers == null) currentMetadata.publishers
-        else ((alternativePublishers ?: emptyList()) + listOfNotNull(publisher))
-            .map { KavitaAuthor(id = 0, name = it) }.toSet()
-
-    val authors = authors?.groupBy { it.role.lowercase() }
-    val ageRating = ageRating
-        ?.let { metadataRating ->
-            KavitaAgeRating.entries
-                .filter { it.ageRating != null }
-                .sortedBy { it.ageRating }
-                .firstOrNull { it.ageRating == it.ageRating!!.coerceAtLeast(metadataRating) }
-                ?: KavitaAgeRating.ADULTS_ONLY
-        }
-
-    val metadata = KavitaSeriesMetadata(
-        publicationStatus = status ?: currentMetadata.publicationStatus,
-        summary = summary ?: currentMetadata.summary,
-        publishers = publishers,
-        genres = genres?.let { deduplicate(it) }?.map { KavitaGenre(id = 0, title = it) }?.toSet()
-            ?: currentMetadata.genres,
-        tags = tags?.let { deduplicate(it) }?.map { KavitaTag(id = 0, title = it) }?.toSet() ?: currentMetadata.tags,
-        writers = authors
-            ?.get(AuthorRole.WRITER.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet()
-            ?.ifEmpty { currentMetadata.writers } ?: currentMetadata.writers,
-        coverArtists = authors
-            ?.get(AuthorRole.COVER.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet()
-            ?.ifEmpty { currentMetadata.coverArtists } ?: currentMetadata.coverArtists,
-        pencillers = authors
-            ?.get(AuthorRole.PENCILLER.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet()
-            ?.ifEmpty { currentMetadata.pencillers } ?: currentMetadata.pencillers,
-        inkers = authors
-            ?.get(AuthorRole.INKER.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet()
-            ?.ifEmpty { currentMetadata.inkers } ?: currentMetadata.inkers,
-        colorists = authors
-            ?.get(AuthorRole.COLORIST.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet()
-            ?.ifEmpty { currentMetadata.colorists } ?: currentMetadata.colorists,
-        letterers = authors
-            ?.get(AuthorRole.LETTERER.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet()
-            ?.ifEmpty { currentMetadata.letterers } ?: currentMetadata.letterers,
-        editors = authors
-            ?.get(AuthorRole.EDITOR.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet() ?: currentMetadata.editors,
-        translators = authors
-            ?.get(AuthorRole.TRANSLATOR.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet() ?: currentMetadata.translators,
-        ageRating = ageRating ?: currentMetadata.ageRating,
-        language = language ?: currentMetadata.language,
-        releaseYear = releaseYear ?: currentMetadata.releaseYear,
-        webLinks = links?.joinToString(separator = ",") { it.url } ?: currentMetadata.webLinks,
-        id = currentMetadata.id,
-        seriesId = currentMetadata.seriesId,
-        characters = currentMetadata.characters,
-        imprints = currentMetadata.imprints,
-        teams = currentMetadata.teams,
-        locations = currentMetadata.locations,
-        maxCount = currentMetadata.maxCount,
-        totalCount = currentMetadata.totalCount,
-        languageLocked = currentMetadata.languageLocked,
-        summaryLocked = currentMetadata.summaryLocked,
-        ageRatingLocked = currentMetadata.ageRatingLocked,
-        publicationStatusLocked = currentMetadata.publicationStatusLocked,
-        genresLocked = currentMetadata.genresLocked,
-        tagsLocked = currentMetadata.tagsLocked,
-        writerLocked = currentMetadata.writerLocked,
-        characterLocked = currentMetadata.characterLocked,
-        coloristLocked = currentMetadata.coloristLocked,
-        editorLocked = currentMetadata.editorLocked,
-        inkerLocked = currentMetadata.inkerLocked,
-        imprintLocked = currentMetadata.imprintLocked,
-        lettererLocked = currentMetadata.lettererLocked,
-        pencillerLocked = currentMetadata.pencillerLocked,
-        publisherLocked = currentMetadata.publisherLocked,
-        translatorLocked = currentMetadata.translatorLocked,
-        teamLocked = currentMetadata.teamLocked,
-        locationLocked = currentMetadata.locationLocked,
-        coverArtistLocked = currentMetadata.coverArtistLocked,
-        releaseYearLocked = currentMetadata.releaseYearLocked
-    )
-    return KavitaSeriesMetadataUpdateRequest(metadata)
-}
-
 private val normalizeRegex = "[^\\p{L}0-9+!]".toRegex()
 private fun deduplicate(values: Collection<String>) = values
     .map { normalizeRegex.replace(it, "").trim().lowercase() to it }
@@ -487,104 +568,12 @@ private fun kavitaSeriesResetRequest(seriesId: KavitaSeriesId): KavitaSeriesMeta
     return KavitaSeriesMetadataUpdateRequest(metadata)
 }
 
-private fun KavitaSeries.toKavitaTitleUpdate(newName: String?, newSortName: String?, newLocalizedName: String?) =
-    KavitaSeriesUpdateRequest(
-        id = id,
-        name = newName?.trim() ?: name,
-        sortName = newSortName?.trim() ?: sortName,
-        localizedName = newLocalizedName?.trim() ?: localizedName,
-        nameLocked = nameLocked,
-        sortNameLocked = sortNameLocked,
-        localizedNameLocked = localizedNameLocked,
-
-        coverImageLocked = coverImageLocked
-    )
-
 private fun KavitaSeries.toKavitaCoverResetRequest() = KavitaSeriesUpdateRequest(
     id = id,
-    name = name,
     localizedName = localizedName,
     sortName = sortName,
-    nameLocked = false,
     sortNameLocked = false,
     localizedNameLocked = false,
 
     coverImageLocked = false
 )
-
-private fun MediaServerBookMetadataUpdate.toKavitaChapterMetadataUpdate(currentChapter: KavitaChapter): KavitaChapterMetadataUpdateRequest {
-    val authors = authors?.groupBy { it.role.lowercase() }
-    return KavitaChapterMetadataUpdateRequest(
-        id = currentChapter.id,
-        summary = summary ?: currentChapter.summary,
-        genres = currentChapter.genres,
-        tags = tags?.let { deduplicate(it) }?.map { KavitaTag(id = 0, title = it) } ?: currentChapter.tags,
-        ageRating = currentChapter.ageRating,
-        language = currentChapter.language,
-        weblinks = links?.joinToString(",") { it.url } ?: currentChapter.webLinks,
-        isbn = isbn ?: currentChapter.isbn,
-        releaseDate = releaseDate?.atTime(LocalTime(0, 0, 0)) ?: currentChapter.releaseDate,
-        titleName = title ?: currentChapter.titleName,
-        sortOrder = numberSort ?: currentChapter.sortOrder,
-        writers = authors
-            ?.get(AuthorRole.WRITER.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet()
-            ?.ifEmpty { currentChapter.writers } ?: currentChapter.writers,
-        coverArtists = authors
-            ?.get(AuthorRole.COVER.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet()
-            ?.ifEmpty { currentChapter.coverArtists } ?: currentChapter.coverArtists,
-        pencillers = authors
-            ?.get(AuthorRole.PENCILLER.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet()
-            ?.ifEmpty { currentChapter.pencillers } ?: currentChapter.pencillers,
-        inkers = authors
-            ?.get(AuthorRole.INKER.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet()
-            ?.ifEmpty { currentChapter.inkers } ?: currentChapter.inkers,
-        colorists = authors
-            ?.get(AuthorRole.COLORIST.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet()
-            ?.ifEmpty { currentChapter.colorists } ?: currentChapter.colorists,
-        letterers = authors
-            ?.get(AuthorRole.LETTERER.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet()
-            ?.ifEmpty { currentChapter.letterers } ?: currentChapter.letterers,
-        editors = authors
-            ?.get(AuthorRole.EDITOR.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet()
-            ?.ifEmpty { currentChapter.editors } ?: currentChapter.editors,
-        translators = authors
-            ?.get(AuthorRole.TRANSLATOR.name.lowercase())
-            ?.map { KavitaAuthor(id = 0, name = it.name) }?.toSet()
-            ?.ifEmpty { currentChapter.translators } ?: currentChapter.translators,
-        imprints = currentChapter.imprints,
-        publishers = currentChapter.publishers,
-        characters = currentChapter.characters,
-        teams = currentChapter.teams,
-        locations = currentChapter.locations,
-        ageRatingLocked = currentChapter.ageRatingLocked,
-        genresLocked = currentChapter.genresLocked,
-        tagsLocked = currentChapter.tagsLocked,
-        writerLocked = currentChapter.writerLocked,
-        characterLocked = currentChapter.characterLocked,
-        coloristLocked = currentChapter.coloristLocked,
-        editorLocked = currentChapter.editorLocked,
-        inkerLocked = currentChapter.inkerLocked,
-        imprintLocked = currentChapter.imprintLocked,
-        lettererLocked = currentChapter.lettererLocked,
-        pencillerLocked = currentChapter.pencillerLocked,
-        publisherLocked = currentChapter.publisherLocked,
-        translatorLocked = currentChapter.translatorLocked,
-        teamLocked = currentChapter.teamLocked,
-        locationLocked = currentChapter.locationLocked,
-        coverArtistLocked = currentChapter.coverArtistLocked,
-        languageLocked = currentChapter.languageLocked,
-        summaryLocked = currentChapter.summaryLocked,
-        // TODO
-        titleNameLocked = false,
-        isbnLocked = false,
-        releaseDateLocked = false,
-        sortOrderLocked = numberSortLock ?: false
-    )
-}

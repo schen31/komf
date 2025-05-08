@@ -51,7 +51,7 @@ class YenPressMetadataMapper(
                 )
             ),
             authors = authors(book.authors),
-            summary = book.description,
+            summary = book.description?.ifBlank { null },
             genres = book.genres,
             tags = emptyList(),
             releaseDate = book.releaseDate?.toReleaseDate(),
@@ -87,11 +87,11 @@ class YenPressMetadataMapper(
     fun toBookMetadata(book: YenPressBook, thumbnail: Image? = null): ProviderBookMetadata {
         val metadata = BookMetadata(
             number = book.number,
-            title = bookTitle(book.name),
+            title = book.name.let { if (it.isNotBlank()) bookTitle(it) else null },
             authors = authors(book.authors),
-            summary = book.description,
+            summary = book.description?.ifBlank { null },
             releaseDate = book.releaseDate,
-            isbn = book.isbn,
+            isbn = book.isbn?.ifBlank { null },
             startChapter = null,
             endChapter = null,
             thumbnail = thumbnail,

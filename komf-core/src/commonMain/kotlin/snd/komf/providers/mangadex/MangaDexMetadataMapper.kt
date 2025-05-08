@@ -143,7 +143,7 @@ class MangaDexMetadataMapper(
             titles = titles,
             summary = manga.attributes.description.let { descriptionMap ->
                 descriptionMap["en"] ?: descriptionMap.values.firstOrNull()
-            },
+            }?.ifBlank { null },
             genres = genres,
             tags = tags,
             authors = authors + artists,

@@ -71,7 +71,7 @@ class MalMetadataMapper(
         val metadata = SeriesMetadata(
             status = status,
             titles = titles,
-            summary = series.synopsis,
+            summary = series.synopsis?.ifBlank { null },
             genres = series.genres.map { it.name },
             authors = authors,
             publisher = null,

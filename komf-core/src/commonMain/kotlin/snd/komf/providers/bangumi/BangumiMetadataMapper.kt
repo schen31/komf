@@ -59,7 +59,7 @@ class BangumiMetadataMapper(
 
         val tags = subject.tags.sortedByDescending { it.count }
             .take(15)
-            .filter { it.count > 1 }
+            .filter { it.count > 1 && it.name.isNotBlank() }
             .map { it.name }
 
         val altTitles =
@@ -91,7 +91,7 @@ class BangumiMetadataMapper(
         val metadata = SeriesMetadata(
             status = status,
             titles = titles,
-            summary = subject.summary.trimIndent(),
+            summary = subject.summary.trimIndent().ifBlank { null },
             publisher = publishers.firstOrNull(),
             alternativePublishers = altPublishers.toSet() + publishers.drop(1),
             tags = tags,
@@ -146,7 +146,7 @@ class BangumiMetadataMapper(
         val tags = book.tags.asSequence()
             .sortedByDescending { it.count }
             .take(15)
-            .filter { it.count > 1 }
+            .filter { it.count > 1 && it.name.isNotBlank() }
             .map { it.name }.toSet()
 
         val infoBox = book.infobox?.associate { it.key to it } ?: emptyMap()
@@ -160,14 +160,14 @@ class BangumiMetadataMapper(
             else -> null
         }
         val metadata = BookMetadata(
-            title = book.name,
-            summary = book.summary.trimIndent(),
+            title = book.name.ifBlank { null },
+            summary = book.summary.trimIndent().ifBlank { null },
             number = bookNumber,
             numberSort = bookNumber?.start,
             releaseDate = book.date?.let { LocalDate.parse(it) },
             authors = getAuthors(infoBox),
             tags = tags,
-            isbn = isbn,
+            isbn = isbn?.ifBlank { null },
             startChapter = null,
             endChapter = null,
             thumbnail = thumbnail,

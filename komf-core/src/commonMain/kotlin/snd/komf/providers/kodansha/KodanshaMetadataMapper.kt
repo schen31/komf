@@ -52,7 +52,7 @@ class KodanshaMetadataMapper(
         val metadata = SeriesMetadata(
             status = status,
             titles = listOf(SeriesTitle(seriesTitle, TitleType.LOCALIZED, "en")),
-            summary = series.description?.let { parseDescription(it) },
+            summary = series.description?.let { parseDescription(it).ifBlank { null } },
             publisher = series.publisher?.let { Publisher(it, PublisherType.LOCALIZED) },
             ageRating = ageRating,
             genres = series.genres?.map { it.name } ?: emptyList(),
@@ -85,7 +85,7 @@ class KodanshaMetadataMapper(
         val author = if (book.creators?.size == 1) Author(book.creators.first().name, AuthorRole.WRITER) else null
         val metadata = BookMetadata(
             title = book.name,
-            summary = book.description?.let { parseDescription(it) },
+            summary = book.description?.let { parseDescription(it).ifBlank { null } },
             number = book.volumeNumber?.let { volumeNumber ->
                 if (volumeNumber == 0) null
                 else BookRange(volumeNumber.toDouble())

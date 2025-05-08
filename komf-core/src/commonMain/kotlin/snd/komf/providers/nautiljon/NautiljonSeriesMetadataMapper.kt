@@ -67,7 +67,7 @@ class NautiljonSeriesMetadataMapper(
         val metadata = SeriesMetadata(
             status = status,
             titles = titles,
-            summary = series.description,
+            summary = series.description?.ifBlank { null },
             publisher = publisher,
             alternativePublishers = setOfNotNull(originalPublisher, frenchPublisher) - setOfNotNull(publisher),
             genres = series.genres,
@@ -104,7 +104,7 @@ class NautiljonSeriesMetadataMapper(
         }
 
         val metadata = BookMetadata(
-            summary = volume.description,
+            summary = volume.description?.ifBlank { null },
             number = volume.number.let { number -> BookRange(number.toDouble(), number.toDouble()) },
             releaseDate = if (seriesMetadataConfig.useOriginalPublisher) volume.originalReleaseDate else volume.frenchReleaseDate,
             authors = authors,

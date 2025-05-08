@@ -297,7 +297,7 @@ class KavitaMediaServerClientAdapter(
 
     private fun MediaServerBookMetadataUpdate.toKavitaChapterMetadataUpdate(currentChapter: KavitaChapter): KavitaChapterMetadataUpdateRequest {
         val tags = tags?.let { deduplicate(it) }?.map { KavitaTag(id = 0, title = it) }?.ifEmpty { null }
-        val webLinks = links?.joinToString(",") { it.url }?.ifEmpty { null }
+        val webLinks = links?.joinToString(",") { it.url }?.ifBlank { null }
 
         val authors = authors?.groupBy { it.role.lowercase() }
         val writers = getRoles(authors, AuthorRole.WRITER)

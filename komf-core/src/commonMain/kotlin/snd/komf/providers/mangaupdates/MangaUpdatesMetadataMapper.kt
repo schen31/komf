@@ -59,7 +59,7 @@ class MangaUpdatesMetadataMapper(
         val metadata = SeriesMetadata(
             status = status,
             titles = titles,
-            summary = series.description,
+            summary = series.description?.ifBlank { null },
             publisher = publisher,
             alternativePublishers = (originalPublishers + englishPublishers) - setOfNotNull(publisher),
             genres = series.genres.map { it.genre },

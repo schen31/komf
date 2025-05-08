@@ -72,7 +72,7 @@ class AniListMetadataMapper(
             }
         val tags = series.tags?.asSequence()
             ?.mapNotNull { tag -> tag.rank?.let { tag.name to tag.rank } }
-            ?.filter { (_, rank) -> rank >= tagsScoreThreshold }
+            ?.filter { (name, rank) -> name.isNotBlank() && rank >= tagsScoreThreshold }
             ?.sortedByDescending { (_, rank) -> rank }
             ?.take(tagsSizeLimit)
             ?.map { (name, _) -> name }
@@ -94,7 +94,7 @@ class AniListMetadataMapper(
         val metadata = SeriesMetadata(
             status = status,
             titles = titles,
-            summary = series.description?.let { Ksoup.parse(it).wholeText() },
+            summary = series.description?.let { Ksoup.parse(it).wholeText().ifBlank { null } },
             genres = series.genres ?: emptyList(),
             tags = tags,
             authors = authors ?: emptyList(),

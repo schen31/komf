@@ -59,7 +59,7 @@ class ComicVineMetadataMapper(
         val metadata = SeriesMetadata(
             title = SeriesTitle(volume.name, null, null),
             titles = listOf(SeriesTitle(volume.name, null, null)),
-            summary = volume.description?.let { parseDescription(it) },
+            summary = volume.description?.let { parseDescription(it).ifBlank { null } },
             publisher = volume.publisher?.name?.let { Publisher(it) },
             releaseDate = ReleaseDate(volume.startYear?.toIntOrNull(), null, null),
             links = listOf(WebLink("ComicVine", volume.siteDetailUrl)),
@@ -88,8 +88,8 @@ class ComicVineMetadataMapper(
         cover: Image?
     ): ProviderBookMetadata {
         val metadata = BookMetadata(
-            title = issue.name,
-            summary = issue.description?.let { parseDescription(it) },
+            title = issue.name?.ifBlank { null },
+            summary = issue.description?.let { parseDescription(it).ifBlank { null } },
             number = issue.issueNumber?.toDoubleOrNull()?.let { BookRange(it, it) },
             numberSort = issue.issueNumber?.toDoubleOrNull(),
             releaseDate = (issue.storeDate ?: issue.coverDate)?.let { LocalDate.parse(it) },

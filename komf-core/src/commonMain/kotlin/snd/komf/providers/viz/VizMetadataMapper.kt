@@ -43,7 +43,7 @@ class VizMetadataMapper(
         val metadata = SeriesMetadata(
             status = if (allBooks.any { it.final }) ENDED else null,
             titles = listOf(SeriesTitle(book.seriesName, LOCALIZED, "en")),
-            summary = book.description,
+            summary = book.description?.ifBlank { null },
             publisher = Publisher(book.publisher, PublisherType.LOCALIZED),
             ageRating = book.ageRating?.age,
             genres = book.genres,
@@ -76,12 +76,12 @@ class VizMetadataMapper(
 
     fun toBookMetadata(book: VizBook, thumbnail: Image? = null): ProviderBookMetadata {
         val metadata = BookMetadata(
-            title = book.name,
-            summary = book.description,
+            title = book.name.ifBlank { null },
+            summary = book.description?.ifBlank { null },
             number = book.number,
             releaseDate = book.releaseDate,
             authors = getAuthors(book),
-            isbn = book.isbn,
+            isbn = book.isbn?.ifBlank { null },
             startChapter = null,
             endChapter = null,
             thumbnail = thumbnail,

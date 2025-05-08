@@ -51,8 +51,10 @@ class BookWalkerMapper(
 
         val metadata = SeriesMetadata(
             titles = titles,
-            summary = book.synopsis,
-            publisher = Publisher(book.publisher, PublisherType.LOCALIZED),
+            summary = book.synopsis?.ifBlank { null },
+            publisher = book.publisher.let {
+                if (it.isNotBlank()) Publisher(it, PublisherType.LOCALIZED) else null
+            },
             genres = book.genres,
             tags = emptyList(),
             totalBookCount = allBooks.size.let { if (it < 1) null else it },
@@ -73,7 +75,7 @@ class BookWalkerMapper(
                 SeriesBook(
                     id = ProviderBookId(it.id.id),
                     number = it.number,
-                    name = it.name,
+                    name = it.name.ifBlank { null },
                     type = null,
                     edition = null
                 )
@@ -85,8 +87,8 @@ class BookWalkerMapper(
 
     fun toBookMetadata(book: BookWalkerBook, thumbnail: Image? = null): ProviderBookMetadata {
         val metadata = BookMetadata(
-            title = book.name,
-            summary = book.synopsis,
+            title = book.name.ifBlank { null },
+            summary = book.synopsis?.ifBlank { null },
             number = book.number,
             releaseDate = book.availableSince,
             authors = getAuthors(book),

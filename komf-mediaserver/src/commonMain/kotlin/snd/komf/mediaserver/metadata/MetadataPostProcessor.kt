@@ -26,7 +26,6 @@ class MetadataPostProcessor(
     private val languageValue: String?,
     private val fallbackToAltTitle: Boolean,
 
-    private val scoreTag: Boolean,
     private val scoreTagName: String?,
     private val originalPublisherTagName: String?,
     private val publisherTagNames: List<PublisherTagNameConfig>
@@ -73,7 +72,6 @@ class MetadataPostProcessor(
     private fun MutableList<String>.addScoreTag(series: SeriesMetadata) {
         val seriesScore = series.score?.toInt()
         if (scoreTagName != null && seriesScore != null) add("$scoreTagName: $seriesScore")
-        else if (scoreTag && seriesScore != null) add("score: $seriesScore")
     }
 
     private fun MutableList<String>.addOriginalPublisherTag(
@@ -106,12 +104,24 @@ class MetadataPostProcessor(
     }
 
     private fun orderBook(book: MediaServerBook, metadata: BookMetadata): BookMetadata {
+        val range = when (libraryType) {
+            MediaType.MANGA -> BookNameParser.getVolumes(book.name)
+                ?: BookNameParser.getChapters(book.name)
+                ?: BookNameParser.getBookNumber(book.name)
+
+            MediaType.NOVEL, MediaType.COMIC -> BookNameParser.getBookNumber(book.name)
+
+            MediaType.WEBTOON -> BookNameParser.getChapters(book.name)
+                ?: BookNameParser.getBookNumber(book.name)
+        }
+
         val numberSort: Double? = when (libraryType) {
             MediaType.MANGA -> BookNameParser.getSortNumber(book.name)
-            MediaType.NOVEL, MediaType.COMIC -> BookNameParser.getBookNumber(book.name)?.start
+            MediaType.NOVEL, MediaType.COMIC, MediaType.WEBTOON -> range?.start
         }
 
         return metadata.copy(
+            number = range ?: metadata.number,
             numberSort = numberSort ?: metadata.numberSort
         )
     }

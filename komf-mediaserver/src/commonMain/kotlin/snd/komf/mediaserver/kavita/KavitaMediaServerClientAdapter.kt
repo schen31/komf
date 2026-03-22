@@ -116,7 +116,7 @@ class KavitaMediaServerClientAdapter(
         metadata: MediaServerSeriesMetadataUpdate
     ) {
         val localizedName = metadata.alternativeTitles?.find { it.language != null }
-        if (metadata.title != null || localizedName != null) {
+        if (metadata.titleSort != null || localizedName != null) {
             val series = kavitaClient.getSeries(seriesId.toKavitaSeriesId())
             kavitaClient.updateSeries(
                 series.toKavitaTitleUpdate(

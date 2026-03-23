@@ -24,6 +24,7 @@ enum class KomfMediaType {
     MANGA,
     NOVEL,
     COMIC,
+    WEBTOON,
 }
 
 enum class KomfNameMatchingMode {
@@ -63,6 +64,7 @@ enum class KomfCoreProviders : KomfProviders {
     MANGA_UPDATES,
     MANGADEX,
     NAUTILJON,
+    WEBTOONS,
     YEN_PRESS,
     VIZ,
 }
@@ -100,6 +102,10 @@ enum class MangaDexLink {
     CD_JAPAN,
     RAW,
     ENGLISH_TL,
+}
+
+enum class MangaBakaMode{
+    API, DATABASE
 }
 
 

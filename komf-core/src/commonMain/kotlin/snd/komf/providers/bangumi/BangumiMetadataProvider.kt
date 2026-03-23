@@ -114,7 +114,7 @@ class BangumiMetadataProvider(
         val matchPlatform = when (type) {
             MediaType.MANGA -> "漫画"
             MediaType.NOVEL -> "小说"
-            MediaType.COMIC -> return null
+            MediaType.COMIC, MediaType.WEBTOON -> return null
         }
 
         for (match in matches) {
